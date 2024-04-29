@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -257,13 +258,73 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
+			// Get a handle to the tbl_transaction collection
+			transCollection := client.Database("mydb").Collection("tbl_transaction")
+
+			// Define the aggregation pipeline with the $lookup stage
+			pipeline := mongo.Pipeline{
+				bson.D{
+					// $lookup stage for tbl_customer
+					bson.E{
+						Key: "$lookup",
+						Value: bson.D{
+							{Key: "from", Value: "tbl_customer"},      // Collection to join with
+							{Key: "localField", Value: "customer_id"}, // Field in tbl_transaction
+							{Key: "foreignField", Value: "_id"},       // Field in tbl_customer
+							{Key: "as", Value: "customer_details"},    // Name of the new field in tbl_transaction
+						},
+					},
+				},
+				bson.D{
+					// $lookup stage for tbl_item
+					bson.E{
+						Key: "$lookup",
+						Value: bson.D{
+							{Key: "from", Value: "tbl_item"},      // Collection to join with
+							{Key: "localField", Value: "item_id"}, // Field in tbl_transaction
+							{Key: "foreignField", Value: "_id"},   // Field in tbl_item
+							{Key: "as", Value: "item_details"},    // Name of the new field in tbl_transaction
+						},
+					},
+				},
+				bson.D{
+					// $addFields stage to add customer_name and item_name
+					bson.E{
+						Key: "$addFields",
+						Value: bson.D{
+							// Extract first element (index 0) of customer_name array, or provide a default value
+							{Key: "customer_name", Value: bson.D{
+								{Key: "$ifNull", Value: bson.A{
+									bson.D{
+										{Key: "$arrayElemAt", Value: bson.A{"$customer_details.customer_name", 0}},
+									},
+									"N/A", // Default value if customer_name array is empty
+								}},
+							}},
+							// Extract first element (index 0) of item_name array, or provide a default value
+							{Key: "item_name", Value: bson.D{
+								{Key: "$ifNull", Value: bson.A{
+									bson.D{
+										{Key: "$arrayElemAt", Value: bson.A{"$item_details.item_name", 0}},
+									},
+									"N/A", // Default value if item_name array is empty
+								}},
+							}},
+						},
+					},
+				},
+			}
+
 			// Handle GET request (list transactions)
-			cursor, err := client.Database("mydb").Collection("tbl_transaction").Find(context.Background(), bson.D{})
+			cursor, err := transCollection.Aggregate(context.Background(), pipeline)
+
 			if err != nil {
-				http.Error(w, "Failed to query the transactions: "+err.Error(), http.StatusInternalServerError)
+				http.Error(w, "Failed to execute aggregation: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
-			var transactions []models.TblTransaction
+			defer cursor.Close(context.Background())
+
+			var transactions []models.TblTransactionView
 			if err = cursor.All(context.Background(), &transactions); err != nil {
 				http.Error(w, "Failed to decode the transactions: "+err.Error(), http.StatusInternalServerError)
 				return
@@ -277,6 +338,8 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 				http.Error(w, "Failed to decode the request body: "+err.Error(), http.StatusBadRequest)
 				return
 			}
+
+			log.Println("transaction: ", transaction)
 
 			transaction.ID = primitive.NewObjectID()
 			transaction.CreatedAt = time.Now()
@@ -341,14 +404,12 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 
 			// Create the update map for the MongoDB query
 			update := bson.M{"$set": bson.M{
-				"customer_id":   transaction.CustomerID,
-				"customer_name": transaction.CustomerName,
-				"item_id":       transaction.ItemId,
-				"item_name":     transaction.ItemName,
-				"qty":           transaction.Qty,
-				"price":         transaction.Price,
-				"amount":        transaction.Amount,
-				"updated_at":    time.Now(),
+				"customer_id": transaction.CustomerID,
+				"item_id":     transaction.ItemId,
+				"qty":         transaction.Qty,
+				"price":       transaction.Price,
+				"amount":      transaction.Amount,
+				"updated_at":  time.Now(),
 			}}
 
 			// Perform the update operation on the MongoDB collection

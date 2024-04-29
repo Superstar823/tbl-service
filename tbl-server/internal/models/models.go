@@ -27,10 +27,21 @@ type TblItem struct {
 }
 
 type TblTransaction struct {
+	ID         primitive.ObjectID `json:"id" bson:"_id"`
+	CustomerID primitive.ObjectID `json:"customer_id" bson:"customer_id"`
+	ItemId     primitive.ObjectID `json:"item_id" bson:"item_id"`
+	Qty        int                `json:"qty" bson:"qty"`
+	Price      uint               `json:"price" bson:"price"`
+	Amount     uint               `json:"amount" bson:"amount"`
+	CreatedAt  time.Time          `json:"created_at" bson:"created_at"`
+	UpdatedAt  time.Time          `json:"updated_at" bson:"updated_at"`
+}
+
+type TblTransactionView struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id"`
 	CustomerID   primitive.ObjectID `json:"customer_id" bson:"customer_id"`
-	CustomerName string             `json:"customer_name" bson:"customer_name"`
 	ItemId       primitive.ObjectID `json:"item_id" bson:"item_id"`
+	CustomerName string             `json:"customer_name" bson:"customer_name"`
 	ItemName     string             `json:"item_name" bson:"item_name"`
 	Qty          int                `json:"qty" bson:"qty"`
 	Price        uint               `json:"price" bson:"price"`
