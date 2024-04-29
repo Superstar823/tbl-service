@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -339,8 +338,6 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 				return
 			}
 
-			log.Println("transaction: ", transaction)
-
 			transaction.ID = primitive.NewObjectID()
 			transaction.CreatedAt = time.Now()
 			transaction.UpdatedAt = time.Now()
@@ -353,18 +350,9 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 			w.WriteHeader(http.StatusCreated)
 
 		case http.MethodDelete:
-			var transaction models.TblTransaction
-			// Decode the request body into the transaction variable
-			decoder := json.NewDecoder(r.Body)
-			decoder.DisallowUnknownFields() // Avoid decoding unknown fields
-			if err := decoder.Decode(&transaction); err != nil {
-				// Handle decoding error and respond with a Bad Request status
-				http.Error(w, "Failed to decode the request body: "+err.Error(), http.StatusBadRequest)
-				return
-			}
-
+			id := r.URL.Path[len("/api/transactions/"):]
 			// Check if the provided ID is in the correct format
-			objectID, err := primitive.ObjectIDFromHex(transaction.ID.Hex())
+			objectID, err := primitive.ObjectIDFromHex(id)
 			if err != nil {
 				http.Error(w, "Invalid item ID format: "+err.Error(), http.StatusBadRequest)
 				return
@@ -373,11 +361,14 @@ func TransactionHandler(client *mongo.Client) http.HandlerFunc {
 			// Create the filter for the MongoDB query
 			filter := bson.M{"_id": objectID}
 
+			// Delete the transaction from the database
 			result, err := client.Database("mydb").Collection("tbl_transaction").DeleteOne(context.Background(), filter)
 			if err != nil || result.DeletedCount == 0 {
 				http.Error(w, "Failed to delete the transaction: "+err.Error(), http.StatusInternalServerError)
 				return
 			}
+
+			// Respond with success
 			w.WriteHeader(http.StatusNoContent)
 
 		case http.MethodPut:
