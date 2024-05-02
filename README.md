@@ -1,6 +1,6 @@
 # TBL Service
 
-## TBL Server
+## TBL backend
 
 #### Candidate build Rest API to create, Insert, Update, Delete on tbl_customer, tbl_transaction, tbl_items
 
@@ -8,9 +8,9 @@
 
 #### Write Api to filter data from TransactionViews ( Search by id, customer_name, and item_name)
 
-![data_structure](./tbl-client/public/data_structure.png)
+![data_structure](./tbl-frontend/public/data_structure.png)
 
-## TBL Client
+## TBL frontend
 
 #### Create UI to display data as Table
 
@@ -20,6 +20,6 @@
 
 #### Add Button to delete item from table
 
-![modal](./tbl-client/public/modal.png)
+![modal](./tbl-frontend/public/modal.png)
 
-![transactionview](./tbl-client/public/transactionview.png)
+![transactionview](./tbl-frontend/public/transactionview.png)
